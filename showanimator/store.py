@@ -8,7 +8,7 @@ import secrets
 
 from sqlmodel import select
 
-from showrunner.models import Cue
+from showrunner.models import Cue, CueList
 
 from .engines import BLENDS
 from .models import AnimatorAnimation, AnimatorStage
@@ -102,6 +102,21 @@ def list_animations(db, cue_id: int) -> list[AnimatorAnimation]:
         return list(s.exec(select(AnimatorAnimation).where(
             AnimatorAnimation.cue_id == cue_id).order_by(AnimatorAnimation.sequence,
                                                          AnimatorAnimation.id)).all())
+
+
+def animations_on_layer(db, show_id: int, layer: str) -> list[AnimatorAnimation]:
+    with db.session() as s:
+        return list(s.exec(select(AnimatorAnimation).join(Cue, AnimatorAnimation.cue_id == Cue.id)
+                           .join(CueList, Cue.cue_list_id == CueList.id)
+                           .where(CueList.show_id == show_id, Cue.layer == layer)).all())
+
+
+def layers_with_animations(db, show_id: int) -> list[str]:
+    with db.session() as s:
+        names = s.exec(select(Cue.layer).join(CueList, Cue.cue_list_id == CueList.id)
+                       .join(AnimatorAnimation, AnimatorAnimation.cue_id == Cue.id)
+                       .where(CueList.show_id == show_id).distinct()).all()
+    return sorted(n for n in names if n)
 
 
 def add_animation(db, cue_id: int, *, action: str = "show", scene: str | None = None,

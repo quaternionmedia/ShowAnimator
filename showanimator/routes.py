@@ -50,6 +50,7 @@ def stage_page(slug: str, k: str | None = None):
         "name": stage.name,
         "token": k if stage.private else None,
         "engine": engine.manifest(),
+        "hideFade": runtime.hide_fade,
     }
     # Escape '<' so a stage name can never close the script tag early.
     blob = json.dumps(config).replace("<", "\\u003c")
@@ -125,6 +126,6 @@ def _stage_command(stage_id: int, msg: dict) -> None:
                          opacity=float(msg.get("opacity", 1.0)),
                          fade=float(msg.get("fade", 0.0)))
     elif kind == "hide":
-        cues.hide_slot(stage_id, slot, fade=float(msg.get("fade", 0.0)))
+        cues.hide_slot(stage_id, slot, fade=None if msg.get("fade") is None else float(msg["fade"]))
     else:
         raise ValueError(f"unknown command {kind!r}")

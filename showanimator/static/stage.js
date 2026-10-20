@@ -204,7 +204,7 @@ function renderDebug() {
     const row = el("div", { className: "row" }, box);
     const hide = el("button", { type: "button", textContent: "Hide" }, row);
     hide.addEventListener("click", () => send({ type: "hide", slot: s.name, fade: fadeInput.value }));
-    const fadeInput = el("input", { type: "number", min: 0, step: 0.5, value: 0, title: "fade (s)" }, row);
+    const fadeInput = el("input", { type: "number", min: 0, step: 0.5, value: cfg.hideFade, title: "fade (s)" }, row);
     el("span", { textContent: "s" }, row);
     if (scene) {
       for (const spec of scene.params) {

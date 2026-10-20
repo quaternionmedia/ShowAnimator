@@ -18,6 +18,7 @@ class Runtime:
         self.pm = None  # pluggy manager, set in showrunner_startup
         self.hub = StageHub()
         self.media_dir = Path("animator_media")  # set from [plugins.showanimator] in startup
+        self.hide_fade = 1.0  # seconds; [plugins.showanimator] hide_fade
 
     def engines(self):
         return collect(self.pm)

@@ -43,8 +43,10 @@ def _param_control(spec, value, on_change):
             ui.label(f"No images in {runtime.media_dir}. Add .png/.jpg/.webp/.gif files and reload.")
         return ui.select(names, label=spec.label, value=value if value in names else None,
                          on_change=lambda e: on_change(e.value))
-    return ui.slider(min=spec.min, max=spec.max, step=spec.step, value=value,
-                     on_change=lambda e: on_change(e.value)).props("label-always")
+    with ui.column().classes("w-full gap-0"):
+        ui.label(spec.label).classes("text-caption")
+        return ui.slider(min=spec.min, max=spec.max, step=spec.step, value=value,
+                         on_change=lambda e: on_change(e.value)).props("label-always")
 
 
 def _set_opacity(stage_id: int, slot: str, value: float) -> None:
@@ -191,6 +193,13 @@ def _live_panel(show_id: int) -> None:
         if not stages:
             ui.label("No stages yet.")
             return
+        layers = store.layers_with_animations(runtime.db, show_id)
+        if layers:
+            with ui.row().classes("items-center"):
+                ui.label("Stop layer:")
+                for name in layers:
+                    ui.button(name, icon="stop", on_click=lambda n=name: ui.notify(
+                        f"Stopped {cues.stop_layer(show_id, n)} slot(s) on {n}")).props("outline color=negative")
         picker = ui.select({s.id: s.name for s in stages}, value=stages[0].id, label="Stage")
         box = ui.column().classes("w-full")
         shape: dict = {"key": None}
@@ -208,7 +217,9 @@ def _live_panel(show_id: int) -> None:
                     with ui.row().classes("items-center"):
                         ui.label(f"{s['name']} · {sc.label if sc else s['scene']}").classes("text-bold")
                         ui.button("Hide", on_click=lambda n=s["name"]: cues.hide_slot(picker.value, n))
-                    op = ui.slider(min=0, max=1, step=0.01, value=s["opacity"]).props("label-always")
+                    with ui.column().classes("w-full gap-0"):
+                        ui.label("Opacity").classes("text-caption")
+                        op = ui.slider(min=0, max=1, step=0.01, value=s["opacity"]).props("label-always")
                     op.on_value_change(lambda e, n=s["name"]: _set_opacity(picker.value, n, float(e.value)))
                     controls[(s["name"], "__opacity")] = op
                     for spec in (sc.params if sc else ()):

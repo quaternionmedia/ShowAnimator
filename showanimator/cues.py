@@ -41,8 +41,24 @@ def set_param(stage_id: int, slot: str, key: str, value) -> dict:
     return snap
 
 
-def hide_slot(stage_id: int, slot: str, fade: float = 0.0) -> dict | None:
-    return runtime.hub.hide(stage_id, slot, fade=fade)
+def hide_slot(stage_id: int, slot: str, fade: float | None = None) -> dict | None:
+    """Fade a slot to zero. ``fade=None`` uses the configured ``hide_fade`` (default 1 s)."""
+    return runtime.hub.hide(stage_id, slot, fade=runtime.hide_fade if fade is None else fade)
+
+
+def stop_layer(show_id: int, layer: str, fade: float | None = None) -> int:
+    """Hide every slot that a cue on this ShowRunner layer can set. Returns slots targeted.
+
+    shortcut: hides the slot itself, so a slot another layer's cue has since taken is also stopped; upgrade to per-cue slot ownership if that bites.
+    """
+    targets: set[tuple[int, str]] = set()
+    stages = [s.id for s in store.list_stages(runtime.db, show_id)]
+    for row in store.animations_on_layer(runtime.db, show_id, layer):
+        for sid in ([row.stage_id] if row.stage_id is not None else stages):
+            targets.add((sid, row.slot))
+    for sid, slot in targets:
+        hide_slot(sid, slot, fade=fade)
+    return len(targets)
 
 
 def fire_cue(cue_id: int) -> int:
@@ -135,7 +151,8 @@ def handle_command(command_name: str, data: dict | None) -> None:
                 set_param(sid, str(data.get("slot", "main")), str(data["key"]), data["value"])
         elif command_name == "animator.hide":
             for sid in _stage_ids(data.get("stage"), show_id):
-                hide_slot(sid, str(data.get("slot", "main")), fade=float(data.get("fade", 0.0)))
+                hide_slot(sid, str(data.get("slot", "main")),
+                          fade=None if data.get("fade") is None else float(data["fade"]))
         else:
             logger.warning("ShowAnimator: unknown command {}", command_name)
     except (KeyError, ValueError, TypeError) as exc:

@@ -39,6 +39,7 @@ class ShowAnimatorPlugin(ShowRunnerPlugin):
         runtime.pm = app.pm
         settings = app.config.plugins.settings.get("showanimator", {})
         runtime.media_dir = Path(settings.get("media_dir", "animator_media")).resolve()
+        runtime.hide_fade = max(0.0, float(settings.get("hide_fade", 1.0)))
         logger.info("ShowAnimator media folder: {} ({} images)", runtime.media_dir,
                     len(list_media(runtime.media_dir)))
         app.pm.add_hookspecs(AnimatorSpec)
