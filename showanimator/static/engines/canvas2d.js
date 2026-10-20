@@ -2,7 +2,56 @@
 // Each slot is drawn into its own layer, then composited with its blend mode and opacity.
 // Scene ids and param keys must match showanimator/engines/canvas2d.py.
 
+// Images are fetched once and reused. A missing or unreadable file draws nothing.
+const images = new Map();
+const scratch = document.createElement("canvas");
+
+function imageFor(name) {
+  if (!images.has(name)) {
+    const img = new Image();
+    img.src = `/animator/media/${encodeURIComponent(name)}`;
+    images.set(name, img);
+  }
+  const img = images.get(name);
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+// Shift horizontal bands in the lower 40% by a slow wave, so water and foliage seem to breathe.
+function waterSway(c, w, h, amp, t) {
+  if (scratch.width !== w || scratch.height !== h) {
+    scratch.width = w;
+    scratch.height = h;
+  }
+  const sc = scratch.getContext("2d");
+  sc.clearRect(0, 0, w, h);
+  sc.drawImage(c.canvas, 0, 0);
+  const top = Math.floor(h * 0.6);
+  const band = 3;
+  c.clearRect(0, top, w, h - top);
+  for (let y = top; y < h; y += band) {
+    const bh = Math.min(band, h - y);
+    const dx = amp * Math.sin((2 * Math.PI * t) / 6 + y * 0.05);
+    c.drawImage(scratch, 0, y, w, bh, dx, y, w, bh);
+    // Refill the uncovered edge with the nearest column, stretched.
+    if (dx > 0) c.drawImage(scratch, 0, y, 1, bh, 0, y, dx, bh);
+    else if (dx < 0) c.drawImage(scratch, w - 1, y, 1, bh, w + dx, y, -dx, bh);
+  }
+}
+
 const SCENES = {
+  painting(c, w, h, p, t) {
+    const img = p.image && imageFor(p.image);
+    if (!img) return;
+    // Cover the stage and zoom in, then pan on a slow sine within the spare room.
+    const s = Math.max(w / img.naturalWidth, h / img.naturalHeight) * p.zoom;
+    const dw = img.naturalWidth * s;
+    const dh = img.naturalHeight * s;
+    const phase = (2 * Math.PI * t) / p.period;
+    const x = (w - dw) / 2 + Math.sin(phase) * ((dw - w) / 2) * p.drift;
+    const y = (h - dh) / 2 + Math.cos(phase * 0.618) * ((dh - h) / 2) * p.drift;
+    c.drawImage(img, x, y, dw, dh);
+    if (p.sway > 0) waterSway(c, w, h, p.sway * w, t);
+  },
   solid(c, w, h, p) {
     c.fillStyle = p.color;
     c.fillRect(0, 0, w, h);

@@ -6,6 +6,8 @@ before startup), so handlers read ``runtime`` lazily instead of closing over it.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .engines import collect
 from .state import StageHub
 
@@ -15,6 +17,7 @@ class Runtime:
         self.db = None  # ShowDatabase, set in showrunner_startup (app.db)
         self.pm = None  # pluggy manager, set in showrunner_startup
         self.hub = StageHub()
+        self.media_dir = Path("animator_media")  # set from [plugins.showanimator] in startup
 
     def engines(self):
         return collect(self.pm)

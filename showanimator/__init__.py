@@ -1,5 +1,7 @@
 """ShowAnimator: live browser animations on stages, controlled from ShowRunner."""
 
+from pathlib import Path
+
 import showrunner
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
@@ -8,6 +10,7 @@ from showrunner.plugin import ShowRunnerPlugin
 
 from . import cues
 from .engines import AnimatorSpec
+from .media import list_media
 from .models import ensure_tables
 from .routes import STATIC_DIR, router
 from .ui import register as register_ui
@@ -34,6 +37,10 @@ class ShowAnimatorPlugin(ShowRunnerPlugin):
             return
         runtime.db = db
         runtime.pm = app.pm
+        settings = app.config.plugins.settings.get("showanimator", {})
+        runtime.media_dir = Path(settings.get("media_dir", "animator_media")).resolve()
+        logger.info("ShowAnimator media folder: {} ({} images)", runtime.media_dir,
+                    len(list_media(runtime.media_dir)))
         app.pm.add_hookspecs(AnimatorSpec)
         ensure_tables(db.engine)
         app.api.mount("/animator/static", StaticFiles(directory=STATIC_DIR), name="animator-static")

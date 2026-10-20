@@ -14,6 +14,7 @@ from showrunner.models import Cue, CueList
 from showrunner.ui import _current_show_id, header
 
 from . import cues, store
+from .media import list_media
 from .engines import BLENDS
 from .runtime import runtime
 
@@ -36,6 +37,12 @@ def _scenes() -> dict:
 def _param_control(spec, value, on_change):
     if spec.kind == "color":
         return ui.color_input(spec.label, value=value, on_change=lambda e: on_change(e.value))
+    if spec.kind == "image":
+        names = list_media(runtime.media_dir)
+        if not names:
+            ui.label(f"No images in {runtime.media_dir}. Add .png/.jpg/.webp/.gif files and reload.")
+        return ui.select(names, label=spec.label, value=value if value in names else None,
+                         on_change=lambda e: on_change(e.value))
     return ui.slider(min=spec.min, max=spec.max, step=spec.step, value=value,
                      on_change=lambda e: on_change(e.value)).props("label-always")
 

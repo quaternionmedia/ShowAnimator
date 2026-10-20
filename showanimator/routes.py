@@ -13,10 +13,11 @@ import json
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from loguru import logger
 
 from . import cues, store
+from .media import list_media, media_file
 from .runtime import runtime
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -54,6 +55,19 @@ def stage_page(slug: str, k: str | None = None):
     blob = json.dumps(config).replace("<", "\\u003c")
     html = (STATIC_DIR / "stage.html").read_text(encoding="utf-8")
     return HTMLResponse(html.replace("/*__CONFIG__*/null", blob))
+
+
+@router.get("/media", response_model=list[str])
+def media_list():
+    return list_media(runtime.media_dir)
+
+
+@router.get("/media/{name}")
+def media_get(name: str):
+    path = media_file(runtime.media_dir, name)
+    if path is None:
+        raise HTTPException(404, "image not found")
+    return FileResponse(path)
 
 
 @router.websocket("/ws/{slug}")

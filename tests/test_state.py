@@ -76,3 +76,13 @@ def test_registry_builtin_wins_and_plugins_add_engines():
     engines = collect(SimpleNamespace(hook=Hook()))
     assert engines["canvas2d"] is ENGINE
     assert engines["extra"] is extra
+
+
+def test_painting_scene_stores_image_name_and_motion_defaults():
+    painting = ENGINE.scenes["painting"]
+    hub = StageHub()
+    hub.apply(1, "main", painting, {"image": "cole-ruins.png", "zoom": 0.5})
+    params = hub.snapshot(1)["slots"][0]["params"]
+    assert params["image"] == "cole-ruins.png"
+    assert params["zoom"] == 1.1  # clamped: below 1.1 would expose the edges
+    assert params["period"] == 180

@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 
 import pluggy
 
+from ..media import IMAGE_NAME
+
 hookspec = pluggy.HookspecMarker("showrunner")
 hookimpl = pluggy.HookimplMarker("showrunner")
 
@@ -21,7 +23,8 @@ _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 @dataclass(frozen=True)
 class ParamSpec:
-    """One scene parameter. ``kind`` is 'range' (numeric, min/max/step) or 'color' (#rrggbb)."""
+    """One scene parameter. ``kind`` is 'range' (numeric, min/max/step), 'color' (#rrggbb)
+    or 'image' (a file name in the media folder)."""
 
     key: str
     label: str
@@ -35,6 +38,8 @@ class ParamSpec:
         """Coerce ``value`` to this param's type and range; fall back to the default."""
         if self.kind == "color":
             return value if isinstance(value, str) and _HEX.match(value) else self.default
+        if self.kind == "image":
+            return value if isinstance(value, str) and IMAGE_NAME.fullmatch(value) else self.default
         try:
             v = float(value)
         except (TypeError, ValueError):

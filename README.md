@@ -39,6 +39,15 @@ Commands for OSC/MIDI mappings (`showrunner_command`). Stage defaults to all sta
 
 Blend modes: `normal` (over), `add`, `subtract`, `mask` (knockout: the slot erases what is beneath it, scaled by opacity).
 
+## Paintings (images)
+
+The `painting` scene draws an image, covering the stage and moving very slowly.
+
+- Put image files (`.png`, `.jpg`, `.webp`) in `animator_media/` next to `show.toml` (the folder is relative to where `sr start` runs, like `show.db`). Set `[plugins.showanimator] media_dir = "..."` to use another folder. Files are listed when the control page or a stage page loads; a new file needs a page reload.
+- Params: **Painting** (file name), **Zoom** (1.1-1.6, keeps the edges covered), **Drift** (how far the picture pans, 0-0.8 of the spare room), **Drift period** (seconds for one pan cycle, default 180), **Water sway** (wave amplitude as a fraction of width, applied to the lower 40% of the picture).
+- Routes: `GET /animator/media` lists files; `GET /animator/media/<name>` serves one. Only plain file names are accepted.
+- Limits: the picture is drawn at full size every frame, so very large files may stutter on a small box; pre-scale them. Images are not authenticated beyond the stage's own private token.
+
 ## Writing an engine
 
 An engine has a Python manifest and a browser module.

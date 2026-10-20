@@ -10,7 +10,11 @@ dependencies = ["showrunner>=0.5.1"]
 showanimator = "showanimator:plugin"
 
 [dependency-groups]
-dev = ["pytest>=9.0.2", "httpx>=0.28"]
+dev = [
+    "pytest>=9.0.2",
+    "httpx>=0.28",
+    "typer>=0.27.3",
+]
 
 [tool.uv.sources]
 showrunner = { path = "../ShowRunner", editable = true }

@@ -160,6 +160,13 @@ function paramInput(spec, value, onChange) {
   if (spec.kind === "color") {
     input = el("input", { type: "color", value }, row);
     input.addEventListener("input", () => onChange(input.value));
+  } else if (spec.kind === "image") {
+    input = el("select", {}, row);
+    el("option", { value, textContent: value || "(none)" }, input);
+    fetch("/animator/media").then((r) => r.json()).then((names) => {
+      for (const name of names) if (name !== value) el("option", { value: name, textContent: name }, input);
+    });
+    input.addEventListener("change", () => onChange(input.value));
   } else {
     input = el("input", { type: "range", min: spec.min, max: spec.max, step: spec.step, value }, row);
     input.addEventListener("input", () => onChange(parseFloat(input.value)));
@@ -177,7 +184,7 @@ function renderDebug() {
     for (const block of debugEl.querySelectorAll("[data-slot]")) {
       const s = server.slots.find((x) => x.name === block.dataset.slot);
       if (!s) continue;
-      for (const input of block.querySelectorAll("input[data-key]")) {
+      for (const input of block.querySelectorAll("[data-key]")) {
         if (document.activeElement !== input && s.params[input.dataset.key] !== undefined) {
           input.value = s.params[input.dataset.key];
         }

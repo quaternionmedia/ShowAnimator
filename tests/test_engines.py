@@ -15,3 +15,13 @@ def test_manifest_lists_every_scene_and_param():
     assert [s["id"] for s in manifest["scenes"]] == list(ENGINE.scenes)
     keys = {p["key"] for s in manifest["scenes"] for p in s["params"]}
     assert {"color", "color2", "angle", "speed", "size"} <= keys
+
+
+def test_image_param_accepts_plain_file_names_only():
+    from showanimator.engines import ParamSpec
+
+    spec = ParamSpec("image", "Painting", kind="image", default="")
+    assert spec.clean("hudson-rainbow.png") == "hudson-rainbow.png"
+    assert spec.clean("The Oxbow (1836), Lake’s edge.JPG") == "The Oxbow (1836), Lake’s edge.JPG"
+    for bad in ("../secret.png", "sub/x.png", "x.exe", ".hidden.png", "x.png\n", 3, "x.tif"):
+        assert spec.clean(bad) == "", bad

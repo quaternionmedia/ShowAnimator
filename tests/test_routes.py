@@ -34,3 +34,18 @@ def test_private_stage_websocket_rejects_bad_key(db, show, client):
 
 def test_unknown_stage_is_404(client):
     assert client.get("/animator/stage/nope").status_code == 404
+
+
+def test_media_list_and_file_serving(client, tmp_path, monkeypatch):
+    from showanimator.runtime import runtime
+
+    monkeypatch.setattr(runtime, "media_dir", tmp_path)
+    (tmp_path / "cole-ruins.png").write_bytes(b"\x89PNG fake")
+    (tmp_path / "notes.txt").write_text("not an image")
+    (tmp_path / "dusk-lake.jpg").write_bytes(b"\xff\xd8 fake")
+
+    assert client.get("/animator/media").json() == ["cole-ruins.png", "dusk-lake.jpg"]
+    assert client.get("/animator/media/cole-ruins.png").content == b"\x89PNG fake"
+    assert client.get("/animator/media/notes.txt").status_code == 404
+    assert client.get("/animator/media/..%2Fshow.db").status_code == 404
+    assert client.get("/animator/media/missing.png").status_code == 404
