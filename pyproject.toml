@@ -1,0 +1,26 @@
+[project]
+name = "showanimator"
+version = "0.1.0"
+description = "Live browser animations for ShowRunner stages"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = ["showrunner>=0.5.1"]
+
+[project.entry-points."showrunner"]
+showanimator = "showanimator:plugin"
+
+[dependency-groups]
+dev = ["pytest>=9.0.2", "httpx>=0.28"]
+
+[tool.uv.sources]
+showrunner = { path = "../ShowRunner", editable = true }
+
+[build-system]
+requires = ["uv_build>=0.11.2,<0.14"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv.build-backend]
+module-root = ""

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShowAnimator stage</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #eee; font: 13px system-ui, sans-serif; overflow: hidden; }
+  #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  #cover { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+           background: #000; z-index: 2; }
+  #cover button { font: inherit; font-size: 1.6em; padding: .6em 1.2em; background: #222; color: #eee;
+                  border: 1px solid #555; border-radius: 8px; cursor: pointer; }
+  #cover.hidden { display: none; }
+  #status { position: fixed; top: 6px; right: 8px; opacity: .6; z-index: 3; pointer-events: none; }
+  #debug { position: fixed; left: 8px; bottom: 8px; width: 340px; max-height: 60vh; overflow: auto;
+           background: rgba(20,20,20,.9); border: 1px solid #444; border-radius: 6px; padding: 8px; z-index: 3; }
+  #debug[hidden] { display: none; }
+  #debug fieldset { border: 1px solid #333; margin: 0 0 8px; padding: 6px; }
+  #debug legend { color: #9cf; }
+  #debug label { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+  #debug label span { width: 90px; flex: none; }
+  #debug input, #debug select { flex: 1; min-width: 0; background: #111; color: #eee; border: 1px solid #444; }
+  #debug .row { display: flex; gap: 6px; align-items: center; }
+  #debug .row input { flex: 1; }
+  #debug button { background: #222; color: #eee; border: 1px solid #555; border-radius: 4px; padding: 2px 8px; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="cover"><button id="start" type="button">Tap to start</button></div>
+<div id="status">connecting…</div>
+<div id="debug" hidden></div>
+<script>window.SHOWANIMATOR_CONFIG = /*__CONFIG__*/null;</script>
+<script type="module" src="/animator/static/stage.js"></script>
+</body>
+</html>
