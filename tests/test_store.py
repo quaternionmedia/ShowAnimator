@@ -40,3 +40,19 @@ def test_delete_stage_removes_its_steps_only(db, show):
     store.add_animation(db, c1, stage_id=b.id, scene="solid")
     store.delete_stage(db, a.id)
     assert [r.stage_id for r in store.list_animations(db, c1)] == [b.id]
+
+
+def test_edit_step_in_place_keeps_order_and_rejects_bad_scene(db, show):
+    sid, (c1, _) = show
+    first = store.add_animation(db, c1, scene="solid", params={"color": "#123456"})
+    second = store.add_animation(db, c1, scene="pulse")
+
+    edited = store.add_animation(db, c1, scene="gradient", slot="bg", blend="add", opacity=0.5,
+                                 params={"angle": 45}, animation_id=first.id)
+    assert edited.id == first.id and edited.sequence == first.sequence
+    assert [r.id for r in store.list_animations(db, c1)] == [first.id, second.id]
+    assert (edited.scene, edited.slot, edited.blend, edited.opacity) == ("gradient", "bg", "add", 0.5)
+
+    with pytest.raises(ValueError):
+        store.add_animation(db, c1, scene="nope", animation_id=first.id)
+    assert store.list_animations(db, c1)[0].scene == "gradient"  # unchanged after a rejected edit

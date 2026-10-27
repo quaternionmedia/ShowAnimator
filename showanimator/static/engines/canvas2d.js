@@ -38,6 +38,28 @@ function waterSway(c, w, h, amp, t) {
   }
 }
 
+// Overlay a colour only where something is already drawn (source-atop).
+function wash(c, w, h, color, alpha) {
+  c.save();
+  c.globalCompositeOperation = "source-atop";
+  c.globalAlpha = alpha;
+  c.fillStyle = color;
+  c.fillRect(0, 0, w, h);
+  c.restore();
+}
+
+// Hex colour with alpha, for gradient stops.
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+// Deterministic 0..1 value per (index, channel), so stars keep their places.
+function rnd(i, k) {
+  const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 const SCENES = {
   painting(c, w, h, p, t) {
     const img = p.image && imageFor(p.image);
@@ -51,6 +73,8 @@ const SCENES = {
     const y = (h - dh) / 2 + Math.cos(phase * 0.618) * ((dh - h) / 2) * p.drift;
     c.drawImage(img, x, y, dw, dh);
     if (p.sway > 0) waterSway(c, w, h, p.sway * w, t);
+    if (p.brightness) wash(c, w, h, p.brightness > 0 ? "#fff" : "#000", Math.abs(p.brightness));
+    if (p.tint_strength > 0) wash(c, w, h, p.tint, p.tint_strength);
   },
   solid(c, w, h, p) {
     c.fillStyle = p.color;
@@ -75,6 +99,34 @@ const SCENES = {
     c.beginPath();
     c.arc(w / 2, h / 2, radius, 0, 2 * Math.PI);
     c.fill();
+  },
+  fog(c, w, h, p, t) {
+    const R = Math.max(w, h) * p.size;
+    for (let i = 0; i < 6; i++) {
+      const ph = 2 * Math.PI * p.speed * t * (0.5 + rnd(i, 1)) + i * 1.7;
+      const x = w * (0.5 + 0.4 * Math.sin(ph));
+      const y = h * (0.5 + 0.4 * Math.cos(ph * 0.7 + i));
+      const r = R * (0.6 + 0.4 * rnd(i, 2));
+      const g = c.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(p.color, p.density));
+      g.addColorStop(1, rgba(p.color, 0));
+      c.fillStyle = g;
+      c.fillRect(x - r, y - r, 2 * r, 2 * r);
+    }
+  },
+  sparkle(c, w, h, p, t) {
+    const unit = Math.min(w, h) / 720; // star size follows the stage size
+    c.fillStyle = p.color;
+    for (let i = 0; i < Math.round(p.count); i++) {
+      const phase = 2 * Math.PI * p.rate * t * (0.5 + rnd(i, 3)) + rnd(i, 4) * 2 * Math.PI;
+      const b = Math.max(0, Math.sin(phase)) ** 4;
+      if (b < 0.01) continue;
+      c.globalAlpha = b;
+      c.beginPath();
+      c.arc(rnd(i, 1) * w, rnd(i, 2) * h, (0.5 + 1.5 * rnd(i, 5)) * p.size * unit, 0, 2 * Math.PI);
+      c.fill();
+    }
+    c.globalAlpha = 1;
   },
 };
 

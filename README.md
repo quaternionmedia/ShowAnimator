@@ -44,7 +44,7 @@ Blend modes: `normal` (over), `add`, `subtract`, `mask` (knockout: the slot eras
 The `painting` scene draws an image, covering the stage and moving very slowly.
 
 - Put image files (`.png`, `.jpg`, `.webp`) in `animator_media/` next to `show.toml` (the folder is relative to where `sr start` runs, like `show.db`). Set `[plugins.showanimator] media_dir = "..."` to use another folder. Files are listed when the control page or a stage page loads; a new file needs a page reload.
-- Params: **Painting** (file name), **Zoom** (1.1-1.6, keeps the edges covered), **Drift** (how far the picture pans, 0-0.8 of the spare room), **Drift period** (seconds for one pan cycle, default 180), **Water sway** (wave amplitude as a fraction of width, applied to the lower 40% of the picture).
+- Params: **Painting** (file name), **Zoom** (1.1-1.6, keeps the edges covered), **Drift** (how far the picture pans, 0-0.8 of the spare room), **Drift period** (seconds for one pan cycle, default 180), **Water sway** (wave amplitude as a fraction of width, applied to the lower 40% of the picture), **Brightness** (-1 darker to 1 lighter), **Tint** and **Tint strength** (colour washed over the picture, 0 = none).
 - Routes: `GET /animator/media` lists files; `GET /animator/media/<name>` serves one. Only plain file names are accepted.
 - Limits: the picture is drawn at full size every frame, so very large files may stutter on a small box; pre-scale them. Images are not authenticated beyond the stage's own private token.
 
@@ -65,7 +65,7 @@ An engine has a Python manifest and a browser module.
 3. Serve the module yourself (a plugin mounts its own static directory).
 4. Test that every scene in the manifest has a draw function, as `tests/test_engines.py` does for `canvas2d`.
 
-The built-in engine is `canvas2d` (`solid`, `gradient`, `pulse`): `showanimator/engines/canvas2d.py` and `showanimator/static/engines/canvas2d.js`.
+The built-in engine is `canvas2d` (`solid`, `gradient`, `pulse`, `painting`, `fog` with slowly drifting soft blobs, `sparkle` with twinkling stars): `showanimator/engines/canvas2d.py` and `showanimator/static/engines/canvas2d.js`.
 
 ## Development
 

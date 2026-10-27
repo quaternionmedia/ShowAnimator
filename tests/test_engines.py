@@ -17,6 +17,13 @@ def test_manifest_lists_every_scene_and_param():
     assert {"color", "color2", "angle", "speed", "size"} <= keys
 
 
+def test_new_effect_params_are_clamped():
+    scene = ENGINE.scenes["sparkle"]
+    assert scene.normalize({"count": 9999})["count"] == 400
+    assert ENGINE.scenes["painting"].normalize({"brightness": 5})["brightness"] == 1
+    assert ENGINE.scenes["painting"].normalize({"tint": "red"})["tint"] == "#ffffff"
+
+
 def test_image_param_accepts_plain_file_names_only():
     from showanimator.engines import ParamSpec
 

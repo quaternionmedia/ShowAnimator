@@ -122,8 +122,12 @@ def layers_with_animations(db, show_id: int) -> list[str]:
 def add_animation(db, cue_id: int, *, action: str = "show", scene: str | None = None,
                   stage_id: int | None = None, slot: str = "main",
                   params: dict | None = None, blend: str = "normal",
-                  opacity: float = 1.0, fade: float = 0.0) -> AnimatorAnimation:
-    """Add one step to a cue. Validates action, blend and the scene against the stage's engine."""
+                  opacity: float = 1.0, fade: float = 0.0,
+                  animation_id: int | None = None) -> AnimatorAnimation:
+    """Add one step to a cue, or replace step ``animation_id`` in place (keeps its order).
+
+    Validates action, blend and the scene against the stage's engine before writing.
+    """
     from .engines import collect  # local: avoid import cycle at module load
 
     if action not in ("show", "hide"):
@@ -146,13 +150,20 @@ def add_animation(db, cue_id: int, *, action: str = "show", scene: str | None = 
             engine_ids = [stage.engine] if stage else list(engines)
             if not any(scene in engines[e].scenes for e in engine_ids if e in engines):
                 raise ValueError(f"unknown scene {scene!r}")
-        row = AnimatorAnimation(
+        values = dict(
             show_id=cue.cue_list.show_id if cue.cue_list else None,
-            cue_id=cue_id, stage_id=stage_id, slot=slot, action=action, scene=scene,
+            stage_id=stage_id, slot=slot, action=action, scene=scene,
             params_json=json.dumps(params or {}), blend=blend,
             opacity=min(1.0, max(0.0, opacity)), fade=max(0.0, fade),
-            sequence=len(list_animations_in(s, cue_id)),
         )
+        if animation_id is None:
+            row = AnimatorAnimation(cue_id=cue_id, sequence=len(list_animations_in(s, cue_id)), **values)
+        else:
+            row = s.get(AnimatorAnimation, animation_id)
+            if row is None or row.cue_id != cue_id:
+                raise KeyError(f"step {animation_id} not found on cue {cue_id}")
+            for key, value in values.items():
+                setattr(row, key, value)
         s.add(row)
         s.commit()
         s.refresh(row)

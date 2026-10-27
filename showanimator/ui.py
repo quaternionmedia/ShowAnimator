@@ -111,22 +111,29 @@ def _stages_panel(show_id: int) -> None:
             ui.button("Add stage", on_click=add)
 
 
-def _step_form(cue: Cue, show_id: int, refresh) -> None:
+def _step_form(cue: Cue, show_id: int, refresh, existing=None, on_done=None) -> None:
+    """Add a step to ``cue``, or edit ``existing`` (pre-filled, saved in place)."""
     scenes = _scenes()
     stages = store.list_stages(runtime.db, show_id)
     stage_opts = {0: "All stages", **{s.id: s.name for s in stages}}
     scene_opts = {sid: sc.label for sid, sc in scenes.items()}
+    old = existing
+    initial = json.loads(old.params_json or "{}") if old else {}
     vals: dict = {}
     box = ui.column().classes("w-full")
 
     with ui.row().classes("items-center"):
-        stage = ui.select(stage_opts, value=0, label="Stage")
-        action = ui.select(["show", "hide"], value="show", label="Action")
-        slot = ui.input("Slot", value="main")
-        scene = ui.select(scene_opts, value=next(iter(scene_opts), None), label="Scene")
-        blend = ui.select(list(BLENDS), value="normal", label="Blend")
-        opacity = ui.slider(min=0, max=1, step=0.01, value=1).props("label-always").classes("w-40")
-        fade = ui.number("Fade (s)", value=0, min=0, step=0.5)
+        stage = ui.select(stage_opts, value=(old.stage_id or 0) if old else 0, label="Stage")
+        action = ui.select(["show", "hide"], value=old.action if old else "show", label="Action")
+        slot = ui.input("Slot", value=old.slot if old else "main")
+        scene = ui.select(scene_opts, label="Scene",
+                          value=old.scene if old else next(iter(scene_opts), None))
+        blend = ui.select(list(BLENDS), value=old.blend if old else "normal", label="Blend")
+        with ui.column().classes("w-40 gap-0"):
+            ui.label("Opacity").classes("text-caption")
+            opacity = ui.slider(min=0, max=1, step=0.01,
+                                value=old.opacity if old else 1).props("label-always")
+        fade = ui.number("Fade (s)", value=old.fade if old else 0, min=0, step=0.5)
 
     def show_params() -> None:
         box.clear()
@@ -134,28 +141,33 @@ def _step_form(cue: Cue, show_id: int, refresh) -> None:
         vals.clear()
         if sc is None:
             return
-        vals.update({p.key: p.default for p in sc.params})
+        # Saved values apply only while the scene is still the saved one.
+        shown = initial if old and scene.value == old.scene else {}
+        vals.update({p.key: shown.get(p.key, p.default) for p in sc.params})
         with box:
             for spec in sc.params:
-                _param_control(spec, spec.default,
+                _param_control(spec, vals[spec.key],
                                lambda v, k=spec.key: vals.__setitem__(k, v))
 
     scene.on_value_change(lambda _: show_params())
     show_params()
 
-    def add() -> None:
+    def save() -> None:
         try:
             store.add_animation(runtime.db, cue.id, action=action.value,
                                 scene=scene.value if action.value == "show" else None,
                                 stage_id=stage.value or None, slot=slot.value or "main",
                                 params=vals, blend=blend.value,
-                                opacity=float(opacity.value), fade=float(fade.value or 0))
+                                opacity=float(opacity.value), fade=float(fade.value or 0),
+                                animation_id=old.id if old else None)
         except (KeyError, ValueError) as exc:
             ui.notify(str(exc), type="negative")
             return
         refresh()
+        if on_done:
+            on_done()
 
-    ui.button("Add step", icon="add", on_click=add)
+    ui.button("Save step" if old else "Add step", icon="save" if old else "add", on_click=save)
 
 
 def _cues_panel(show_id: int) -> None:
@@ -179,6 +191,10 @@ def _cues_panel(show_id: int) -> None:
                         ui.button(icon="delete", on_click=lambda r=row: (
                             store.delete_animation(runtime.db, r.id), cue_rows.refresh())
                         ).props("flat dense color=negative")
+                        with ui.dialog() as dlg, ui.card().classes("w-full"):
+                            ui.label("Edit step").classes("text-h6")
+                            _step_form(cue, show_id, cue_rows.refresh, existing=row, on_done=dlg.close)
+                        ui.button(icon="edit", on_click=dlg.open).props("flat dense")
                 _step_form(cue, show_id, cue_rows.refresh)
 
     with ui.card().classes("w-full"):
