@@ -16,6 +16,27 @@ function imageFor(name) {
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
 
+// Huge maps are drawn per frame from a bitmap at most MAX_SOURCE px on the long side.
+// Drawing from the full 8670 px file ran at about 22 fps once loaded, against about 60 for a small image.
+// shortcut: the first frame after load pays a one-time decode of the full file, and the cap blurs close-up zooms; pre-scale the file to skip the decode.
+const MAX_SOURCE = 4096;
+const bitmaps = new WeakMap();
+function bitmapFor(img) {
+  if (!bitmaps.has(img)) {
+    const f = Math.min(1, MAX_SOURCE / Math.max(img.naturalWidth, img.naturalHeight));
+    if (f === 1) {
+      bitmaps.set(img, { src: img, f: 1 });
+    } else {
+      const cv = document.createElement("canvas");
+      cv.width = Math.round(img.naturalWidth * f);
+      cv.height = Math.round(img.naturalHeight * f);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      bitmaps.set(img, { src: cv, f: cv.width / img.naturalWidth });
+    }
+  }
+  return bitmaps.get(img);
+}
+
 // Shift horizontal bands in the lower 40% by a slow wave, so water and foliage seem to breathe.
 function waterSway(c, w, h, amp, t) {
   if (scratch.width !== w || scratch.height !== h) {
@@ -58,6 +79,82 @@ function rgba(hex, a) {
 function rnd(i, k) {
   const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
   return x - Math.floor(x);
+}
+
+// Travel map: a plane flies a route over a map image. Stops are NAME,x,y in image pixels.
+const SAMPLES = 200; // points per leg
+const travel = new WeakMap(); // layer canvas -> { shown, last }: flight progress eased toward the target
+const PLANE = [[30, 0], [8, 4], [2, 26], [-6, 26], [-2, 4], [-20, 3], [-26, 12], [-30, 12], [-28, 0],
+  [-30, -12], [-26, -12], [-20, -3], [-2, -4], [-6, -26], [2, -26], [8, -4]];
+
+export function parseRoute(text) {
+  return text.split(";").map((s) => {
+    const [name, x, y] = s.split(",");
+    return { name: name.trim(), x: parseFloat(x), y: parseFloat(y) };
+  });
+}
+
+// Each leg is a quadratic curve that bulges north, like a flight arc. Legs join into one polyline.
+export function buildRoute(stops) {
+  const pts = [];
+  const stopAt = [0]; // index in pts of each stop
+  for (let k = 0; k < stops.length - 1; k++) {
+    const a = stops[k];
+    const b = stops[k + 1];
+    const cx = (a.x + b.x) / 2;
+    const cy = (a.y + b.y) / 2 - Math.hypot(b.x - a.x, b.y - a.y) * 0.18;
+    for (let s = k === 0 ? 0 : 1; s <= SAMPLES; s++) {
+      const u = s / SAMPLES;
+      const v = 1 - u;
+      pts.push({ x: v * v * a.x + 2 * v * u * cx + u * u * b.x, y: v * v * a.y + 2 * v * u * cy + u * u * b.y });
+    }
+    stopAt.push(pts.length - 1);
+  }
+  const cum = [0]; // distance along the route at each point
+  for (let i = 1; i < pts.length; i++) {
+    cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  }
+  return { stops, pts, cum, stopAt, total: cum[cum.length - 1] };
+}
+
+// Position at fraction f of the route, its heading, the point index reached, and stops passed.
+export function locate(route, f) {
+  const d = Math.min(1, Math.max(0, f)) * route.total;
+  let lo = 1;
+  let hi = route.cum.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (route.cum[mid] < d) lo = mid + 1;
+    else hi = mid;
+  }
+  const a = route.pts[lo - 1];
+  const b = route.pts[lo];
+  const u = (d - route.cum[lo - 1]) / (route.cum[lo] - route.cum[lo - 1] || 1);
+  let passed = 0;
+  while (passed < route.stopAt.length && route.cum[route.stopAt[passed]] <= d) passed++;
+  return {
+    x: a.x + (b.x - a.x) * u,
+    y: a.y + (b.y - a.y) * u,
+    ang: Math.atan2(b.y - a.y, b.x - a.x),
+    index: lo,
+    passed,
+  };
+}
+
+// Filled plane silhouette, rotated to its heading.
+function plane(c, x, y, ang, s, color) {
+  const cs = Math.cos(ang);
+  const sn = Math.sin(ang);
+  c.beginPath();
+  PLANE.forEach(([px, py], i) => {
+    const X = x + s * (px * cs - py * sn);
+    const Y = y + s * (px * sn + py * cs);
+    if (i) c.lineTo(X, Y);
+    else c.moveTo(X, Y);
+  });
+  c.closePath();
+  c.fillStyle = color;
+  c.fill();
 }
 
 const SCENES = {
@@ -128,7 +225,98 @@ const SCENES = {
     }
     c.globalAlpha = 1;
   },
+  travelmap(c, w, h, p, t) {
+    const img = p.image && imageFor(p.image);
+    if (!img) return;
+    const bm = bitmapFor(img);
+    const route = buildRoute(parseRoute(p.route));
+    const st = travel.get(c) || { shown: 0, last: t };
+    travel.set(c, st);
+    const dt = Math.min(0.1, Math.max(0, t - st.last)); // a stalled frame must not jump the plane
+    st.last = t;
+    // Ease toward the target at p.speed route-lengths per second; speed 0 jumps.
+    const step = p.speed * dt;
+    st.shown = p.speed > 0 ? st.shown + Math.max(-step, Math.min(step, p.progress - st.shown)) : p.progress;
+
+    const k = w / 1920; // screen sizes scale with the stage width, as in the montage
+    const sc = p.zoom * k; // screen px per image px
+    const vw = w / sc;
+    const vh = h / sc;
+    const pos = locate(route, st.shown);
+    // Follow the plane, but keep the view inside the image.
+    const x0 = Math.min(Math.max(0, pos.x - vw / 2), Math.max(0, img.naturalWidth - vw));
+    const y0 = Math.min(Math.max(0, pos.y - vh / 2), Math.max(0, img.naturalHeight - vh));
+    c.drawImage(bm.src, x0 * bm.f, y0 * bm.f, vw * bm.f, vh * bm.f, 0, 0, w, h);
+    c.save();
+    const sx = (x) => (x - x0) * sc;
+    const sy = (y) => (y - y0) * sc;
+    const trail = (dx, dy, color, width) => {
+      c.beginPath();
+      for (let i = 0; i < pos.index; i++) {
+        if (i) c.lineTo(sx(route.pts[i].x) + dx, sy(route.pts[i].y) + dy);
+        else c.moveTo(sx(route.pts[i].x) + dx, sy(route.pts[i].y) + dy);
+      }
+      c.lineTo(sx(pos.x) + dx, sy(pos.y) + dy);
+      c.strokeStyle = color;
+      c.lineWidth = width * k;
+      c.lineJoin = "round";
+      c.stroke();
+    };
+    trail(5 * k, 6 * k, "rgb(90,70,45)", 11); // shadow, then the red line
+    trail(0, 0, "rgb(185,20,15)", 10);
+    c.font = `bold ${46 * k}px serif`;
+    c.textAlign = "center";
+    c.textBaseline = "top";
+    route.stops.slice(0, pos.passed).forEach((stop) => {
+      const X = sx(stop.x);
+      const Y = sy(stop.y);
+      c.beginPath();
+      c.arc(X, Y, 12 * k, 0, 2 * Math.PI);
+      c.fillStyle = "rgb(40,25,15)";
+      c.fill();
+      c.lineWidth = 3 * k;
+      c.strokeStyle = "rgb(230,210,170)";
+      c.stroke();
+      c.fillStyle = "rgb(80,60,40)";
+      c.fillText(stop.name, X + 3 * k, Y + 33 * k);
+      c.fillStyle = "rgb(30,15,5)";
+      c.fillText(stop.name, X, Y + 30 * k);
+    });
+    plane(c, sx(pos.x) + 14 * k, sy(pos.y) + 18 * k, pos.ang, 1.6 * k, "rgb(90,70,45)");
+    plane(c, sx(pos.x), sy(pos.y), pos.ang, 1.6 * k, "rgb(45,40,35)");
+    // Film look: sepia tone (colour blend keeps the light and dark), vignette, grain.
+    if (p.sepia > 0) {
+      c.globalCompositeOperation = "color";
+      c.globalAlpha = p.sepia;
+      c.fillStyle = "rgb(140,100,50)";
+      c.fillRect(0, 0, w, h);
+    }
+    c.globalCompositeOperation = "source-over";
+    c.globalAlpha = 1;
+    c.drawImage(vignetteFor(w, h), 0, 0);
+    for (let i = 0; i < Math.round(p.grain * 800); i++) {
+      c.fillStyle = Math.random() < 0.5 ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
+      c.fillRect(Math.random() * w, Math.random() * h, 2 * k, 2 * k);
+    }
+    c.restore();
+  },
 };
+
+// The vignette depends only on size; a gradient fill per frame cost about 16 ms in software rendering.
+let vignetteCache = null;
+function vignetteFor(w, h) {
+  if (vignetteCache && vignetteCache.width === w && vignetteCache.height === h) return vignetteCache;
+  vignetteCache = document.createElement("canvas");
+  vignetteCache.width = w;
+  vignetteCache.height = h;
+  const v = vignetteCache.getContext("2d");
+  const g = v.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.hypot(w, h) / 2);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(1, "rgba(0,0,0,0.55)");
+  v.fillStyle = g;
+  v.fillRect(0, 0, w, h);
+  return vignetteCache;
+}
 
 export function create(canvas) {
   const ctx = canvas.getContext("2d");

@@ -19,12 +19,15 @@ hookimpl = pluggy.HookimplMarker("showrunner")
 
 BLENDS = ("normal", "add", "subtract", "mask")
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+_POINT = r"[A-Za-z][A-Za-z .'-]{0,23},\d{1,6}(?:\.\d{1,4})?,\d{1,6}(?:\.\d{1,4})?"
+# 'NAME,x,y;NAME,x,y;...' with 2 to 20 stops, x and y in image pixels.
+_ROUTE = re.compile(rf"{_POINT}(?:;{_POINT}){{1,19}}")
 
 
 @dataclass(frozen=True)
 class ParamSpec:
-    """One scene parameter. ``kind`` is 'range' (numeric, min/max/step), 'color' (#rrggbb)
-    or 'image' (a file name in the media folder)."""
+    """One scene parameter. ``kind`` is 'range' (numeric, min/max/step), 'color' (#rrggbb),
+    'image' (a file name in the media folder) or 'route' (travel-map stops, see _ROUTE)."""
 
     key: str
     label: str
@@ -40,6 +43,9 @@ class ParamSpec:
             return value if isinstance(value, str) and _HEX.match(value) else self.default
         if self.kind == "image":
             return value if isinstance(value, str) and IMAGE_NAME.fullmatch(value) else self.default
+        if self.kind == "route":
+            text = value.strip() if isinstance(value, str) else ""
+            return text if _ROUTE.fullmatch(text) else self.default
         try:
             v = float(value)
         except (TypeError, ValueError):

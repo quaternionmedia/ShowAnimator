@@ -1076,7 +1076,7 @@ dev = [
 
 [[package]]
 name = "showrunner"
-version = "0.5.1"
+version = "0.5.4"
 source = { editable = "../ShowRunner" }
 dependencies = [
     { name = "alembic" },

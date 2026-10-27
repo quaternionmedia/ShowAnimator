@@ -167,6 +167,10 @@ function paramInput(spec, value, onChange) {
       for (const name of names) if (name !== value) el("option", { value: name, textContent: name }, input);
     });
     input.addEventListener("change", () => onChange(input.value));
+  } else if (spec.kind === "route") {
+    // Sent on commit (blur or Enter), so half-typed routes are not sent.
+    input = el("input", { type: "text", value }, row);
+    input.addEventListener("change", () => onChange(input.value));
   } else {
     input = el("input", { type: "range", min: spec.min, max: spec.max, step: spec.step, value }, row);
     input.addEventListener("input", () => onChange(parseFloat(input.value)));

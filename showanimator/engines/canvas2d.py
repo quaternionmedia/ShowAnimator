@@ -6,6 +6,7 @@ _COLOR = ParamSpec("color", "Colour", kind="color", default="#ffffff")
 _COLOR_B = ParamSpec("color2", "Colour 2", kind="color", default="#000000")
 _IMAGE = ParamSpec("image", "Painting", kind="image", default="")
 _RATE = ParamSpec("speed", "Speed (Hz)", min=0, max=0.2, step=0.005, default=0.03)
+_ROUTE_DEFAULT = "PORTLAND,6385,3745;BURLINGTON,4590,3040;MONTREAL,4325,2165;QUEBEC,5750,960"
 
 ENGINE = Engine(
     id="canvas2d",
@@ -56,6 +57,20 @@ ENGINE = Engine(
                     _RATE,
                     ParamSpec("density", "Density", min=0, max=1, step=0.01, default=0.5),
                     ParamSpec("size", "Blob size", min=0.1, max=1, step=0.01, default=0.5),
+                ),
+            ),
+            # Map pixels are the image's own; the montage route is for the 1863 J. Calvin Smith map.
+            Scene(
+                "travelmap",
+                "Travel map",
+                (
+                    ParamSpec("image", "Map", kind="image", default=""),
+                    ParamSpec("route", "Route (NAME,x,y;...)", kind="route", default=_ROUTE_DEFAULT),
+                    ParamSpec("progress", "Progress", min=0, max=1, step=0.001, default=0),
+                    ParamSpec("speed", "Flight speed (route/s)", min=0, max=0.5, step=0.01, default=0.08),
+                    ParamSpec("zoom", "Zoom", min=0.3, max=2.5, step=0.01, default=0.75),
+                    ParamSpec("sepia", "Sepia", min=0, max=1, step=0.01, default=0.25),
+                    ParamSpec("grain", "Grain", min=0, max=1, step=0.01, default=0.2),
                 ),
             ),
             Scene(

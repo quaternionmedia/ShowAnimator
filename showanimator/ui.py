@@ -43,6 +43,10 @@ def _param_control(spec, value, on_change):
             ui.label(f"No images in {runtime.media_dir}. Add .png/.jpg/.webp/.gif files and reload.")
         return ui.select(names, label=spec.label, value=value if value in names else None,
                          on_change=lambda e: on_change(e.value))
+    if spec.kind == "route":
+        # Debounced, so a route is applied after typing pauses, not on each keystroke.
+        return ui.input(label=spec.label, value=value,
+                        on_change=lambda e: on_change(e.value)).props("debounce=800").classes("w-full")
     with ui.column().classes("w-full gap-0"):
         ui.label(spec.label).classes("text-caption")
         return ui.slider(min=spec.min, max=spec.max, step=spec.step, value=value,
@@ -163,43 +167,63 @@ def _step_form(cue: Cue, show_id: int, refresh, existing=None, on_done=None) -> 
         except (KeyError, ValueError) as exc:
             ui.notify(str(exc), type="negative")
             return
-        refresh()
         if on_done:
             on_done()
+        refresh()
 
     ui.button("Save step" if old else "Add step", icon="save" if old else "add", on_click=save)
 
 
+def _cue_body(cue: Cue, show_id: int, refresh) -> None:
+    names = {s.id: s.name for s in store.list_stages(runtime.db, show_id)}
+
+    def fire() -> None:
+        n = cues.fire_cue(cue.id)
+        ui.notify(f"Fired: {n} slot change(s)")
+
+    ui.button("Fire", icon="play_arrow", on_click=fire)
+    for row in store.list_animations(runtime.db, cue.id):
+        what = (f"{row.action} {row.slot}" + (f" · {row.scene}" if row.scene else "")
+                + f" · {names.get(row.stage_id, 'all stages')} · {row.blend}"
+                + f" · op {row.opacity:g} · fade {row.fade:g}s")
+        with ui.row().classes("items-center"):
+            ui.label(what)
+            ui.button(icon="delete", on_click=lambda r=row: (
+                store.delete_animation(runtime.db, r.id), refresh())
+            ).props("flat dense color=negative")
+            ui.button(icon="edit", on_click=lambda r=row: _edit_step(cue, show_id, refresh, r)
+                      ).props("flat dense")
+    _step_form(cue, show_id, refresh)
+
+
+def _edit_step(cue: Cue, show_id: int, refresh, row) -> None:
+    with ui.dialog() as dlg, ui.card().classes("w-full"):
+        ui.label("Edit step").classes("text-h6")
+        _step_form(cue, show_id, refresh, existing=row, on_done=dlg.close)
+    dlg.open()
+
+
+def _cue_section(cue: Cue, show_id: int) -> None:
+    """One cue; its steps and forms are built only when first opened (large cue lists stay light)."""
+    title = f"{cue.number or ''}{'.' + str(cue.point) if cue.point else ''} {cue.name or ''}".strip()
+    with ui.expansion(title or f"cue {cue.id}").classes("w-full") as exp:
+        body = ui.column().classes("w-full")
+    built = {"done": False}
+
+    def fill() -> None:
+        built["done"] = True
+        body.clear()
+        with body:
+            _cue_body(cue, show_id, fill)
+
+    exp.on_value_change(lambda e: fill() if e.value and not built["done"] else None)
+
+
 def _cues_panel(show_id: int) -> None:
-    @ui.refreshable
-    def cue_rows() -> None:
-        names = {s.id: s.name for s in store.list_stages(runtime.db, show_id)}
-        for cue in _cues(show_id):
-            title = f"{cue.number or ''}{'.' + str(cue.point) if cue.point else ''} {cue.name or ''}".strip()
-            with ui.expansion(title or f"cue {cue.id}").classes("w-full"):
-                def fire(c=cue) -> None:
-                    n = cues.fire_cue(c.id)
-                    ui.notify(f"Fired: {n} slot change(s)")
-
-                ui.button("Fire", icon="play_arrow", on_click=fire)
-                for row in store.list_animations(runtime.db, cue.id):
-                    what = (f"{row.action} {row.slot}" + (f" · {row.scene}" if row.scene else "")
-                            + f" · {names.get(row.stage_id, 'all stages')} · {row.blend}"
-                            + f" · op {row.opacity:g} · fade {row.fade:g}s")
-                    with ui.row().classes("items-center"):
-                        ui.label(what)
-                        ui.button(icon="delete", on_click=lambda r=row: (
-                            store.delete_animation(runtime.db, r.id), cue_rows.refresh())
-                        ).props("flat dense color=negative")
-                        with ui.dialog() as dlg, ui.card().classes("w-full"):
-                            ui.label("Edit step").classes("text-h6")
-                            _step_form(cue, show_id, cue_rows.refresh, existing=row, on_done=dlg.close)
-                        ui.button(icon="edit", on_click=dlg.open).props("flat dense")
-                _step_form(cue, show_id, cue_rows.refresh)
-
     with ui.card().classes("w-full"):
         ui.label("Cues").classes("text-h6")
-        cue_rows()
+        for cue in _cues(show_id):
+            _cue_section(cue, show_id)
 
 
 def _live_panel(show_id: int) -> None:
@@ -241,7 +265,9 @@ def _live_panel(show_id: int) -> None:
                     for spec in (sc.params if sc else ()):
                         el = _param_control(spec, s["params"][spec.key],
                                             lambda v, n=s["name"], k=spec.key: _set_param(picker.value, n, k, v))
-                        controls[(s["name"], spec.key)] = el
+                        # Route text is not re-synced from the hub, so typing is not overwritten.
+                        if spec.kind != "route":
+                            controls[(s["name"], spec.key)] = el
 
         def tick() -> None:
             snap = runtime.hub.snapshot(picker.value)

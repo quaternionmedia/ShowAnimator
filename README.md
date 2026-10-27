@@ -48,6 +48,16 @@ The `painting` scene draws an image, covering the stage and moving very slowly.
 - Routes: `GET /animator/media` lists files; `GET /animator/media/<name>` serves one. Only plain file names are accepted.
 - Limits: the picture is drawn at full size every frame, so very large files may stutter on a small box; pre-scale them. Images are not authenticated beyond the stage's own private token.
 
+## Travel map
+
+The `travelmap` scene flies a plane along a route over a map image, in the style of the Indiana Jones montage.
+
+- Map: put the image in `animator_media/` (or your `media_dir`). The 1863 New England map used in testing is 8670x7203; pre-scale large maps to about 4096 px on the long side so the first frame does not stall. The scene caps the drawing bitmap at 4096 px.
+- **Route** is text: `NAME,x,y;NAME,x,y`, 2-20 stops, in image pixels (top-left is 0,0). Invalid text falls back to the default route.
+- **Progress** (0-1) is how far along the route the plane is; **Flight speed** is route-lengths per second (0 jumps to the progress value); **Zoom**, **Sepia** and **Grain** set the look.
+- The stop labels appear as the plane passes them. The trail is a north-bulging curve between stops.
+- Limits: not tested on a Raspberry Pi; flicker, scratches and gate weave from the montage are not ported.
+
 ## Writing an engine
 
 An engine has a Python manifest and a browser module.
