@@ -43,6 +43,9 @@ def _param_control(spec, value, on_change):
             ui.label(f"No images in {runtime.media_dir}. Add .png/.jpg/.webp/.gif files and reload.")
         return ui.select(names, label=spec.label, value=value if value in names else None,
                          on_change=lambda e: on_change(e.value))
+    if spec.kind == "choice":
+        return ui.select(list(spec.options), label=spec.label, value=value,
+                         on_change=lambda e: on_change(e.value))
     if spec.kind == "route":
         # Debounced, so a route is applied after typing pauses, not on each keystroke.
         return ui.input(label=spec.label, value=value,

@@ -157,6 +157,97 @@ function plane(c, x, y, ang, s, color) {
   c.fill();
 }
 
+// Kites: each has a fixed place in the sky, a depth (far = smaller and slower) and its own wobble.
+// Kite units: nose at (0,-1), spine down to (0,1.1), tail hanging below. Scale sets the size.
+const KITE_COLORS = ["#e63946", "#f4a261", "#2a9d8f", "#e9c46a", "#8ecae6", "#f1faee", "#9b5de5"];
+
+function kiteTri(c, a, b, cc) {
+  c.beginPath();
+  c.moveTo(a[0], a[1]);
+  c.lineTo(b[0], b[1]);
+  c.lineTo(cc[0], cc[1]);
+  c.closePath();
+}
+
+function kiteBody(c, color, style) {
+  if (style === "simple") {
+    kiteTri(c, [0, -1], [0.55, -0.1], [0, 1.1]);
+    c.fillStyle = color;
+    c.fill();
+    kiteTri(c, [0, -1], [-0.55, -0.1], [0, 1.1]);
+    c.fill();
+  } else if (style === "realistic") {
+    // Two halves split by the upright spar; the right half is shaded. Pale spars and a dark outline.
+    kiteTri(c, [0, -1], [-0.55, -0.1], [0, 1.1]);
+    c.fillStyle = color;
+    c.fill();
+    kiteTri(c, [0, -1], [0.55, -0.1], [0, 1.1]);
+    c.fill();
+    c.fillStyle = "rgba(0,0,0,0.3)";
+    c.fill();
+    c.beginPath();
+    c.moveTo(0, -1);
+    c.lineTo(0.55, -0.1);
+    c.lineTo(0, 1.1);
+    c.lineTo(-0.55, -0.1);
+    c.closePath();
+    c.strokeStyle = "rgba(0,0,0,0.5)";
+    c.lineWidth = 0.03;
+    c.stroke();
+    c.beginPath();
+    c.moveTo(0, -1);
+    c.lineTo(0, 1.1);
+    c.moveTo(-0.55, -0.1);
+    c.lineTo(0.55, -0.1);
+    c.strokeStyle = "#f5efe0";
+    c.lineWidth = 0.025;
+    c.stroke();
+  } else {
+    // Impressionistic: soft overlapping translucent blobs, no edges.
+    c.globalAlpha = 0.4;
+    c.fillStyle = color;
+    for (const [dx, dy, r] of [[0, 0, 0.7], [0.1, -0.25, 0.45], [-0.12, 0.35, 0.4]]) {
+      c.beginPath();
+      c.arc(dx, dy, r, 0, 2 * Math.PI);
+      c.fill();
+    }
+  }
+}
+
+function kiteTail(c, style, color, phase) {
+  const pts = [];
+  for (let k = 0; k <= 20; k++) {
+    const u = k / 20;
+    pts.push([Math.sin(phase + u * 5) * 0.12 * u, 1.1 + u * 2.6]);
+  }
+  if (style === "impressionistic") {
+    c.fillStyle = color;
+    pts.filter((_, k) => k % 4 === 0).forEach(([x, y], j) => {
+      c.beginPath();
+      c.arc(x, y, 0.12 - j * 0.015, 0, 2 * Math.PI);
+      c.fill();
+    });
+    return;
+  }
+  c.beginPath();
+  pts.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y)));
+  c.strokeStyle = style === "realistic" ? "rgba(40,40,40,0.8)" : "rgba(30,30,30,0.7)";
+  c.lineWidth = style === "realistic" ? 0.02 : 0.04;
+  c.stroke();
+  if (style === "realistic") {
+    // Bows along the tail, alternating red and white.
+    [4, 8, 12, 16].forEach((k, j) => {
+      const [x, y] = pts[k];
+      const bow = j % 2 ? "#e63946" : "#f1faee";
+      kiteTri(c, [x, y], [x - 0.12, y - 0.07], [x - 0.12, y + 0.07]);
+      c.fillStyle = bow;
+      c.fill();
+      kiteTri(c, [x, y], [x + 0.12, y - 0.07], [x + 0.12, y + 0.07]);
+      c.fill();
+    });
+  }
+}
+
 const SCENES = {
   painting(c, w, h, p, t) {
     const img = p.image && imageFor(p.image);
@@ -209,6 +300,25 @@ const SCENES = {
       g.addColorStop(1, rgba(p.color, 0));
       c.fillStyle = g;
       c.fillRect(x - r, y - r, 2 * r, 2 * r);
+    }
+  },
+  kites(c, w, h, p, t) {
+    const unit = Math.min(w, h) / 720; // kite size follows the stage size, as in sparkle
+    for (let i = 0; i < Math.round(p.count); i++) {
+      const depth = 0.4 + 0.6 * rnd(i, 4);
+      const f = (rnd(i, 1) + p.speed * (0.02 + 0.04 * depth) * t) % 1; // wraps left to right
+      const x = w * (-0.1 + 1.2 * f);
+      const y = h * (0.08 + 0.75 * rnd(i, 2)) + Math.sin(t * (0.6 + rnd(i, 6)) + i) * h * 0.02 * depth;
+      const len = 60 * unit * p.size * (0.5 + depth); // kite height in px
+      const ang = 0.2 * Math.sin(t * (0.5 + rnd(i, 7)) + rnd(i, 8) * 2 * Math.PI);
+      const color = KITE_COLORS[Math.floor(rnd(i, 9) * KITE_COLORS.length)];
+      c.save();
+      c.translate(x, y);
+      c.rotate(ang);
+      c.scale(len / 2, len / 2);
+      kiteTail(c, p.style, color, t * 2 + i);
+      kiteBody(c, color, p.style);
+      c.restore();
     }
   },
   sparkle(c, w, h, p, t) {

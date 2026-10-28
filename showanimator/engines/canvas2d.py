@@ -74,6 +74,17 @@ ENGINE = Engine(
                 ),
             ),
             Scene(
+                "kites",
+                "Kites",
+                (
+                    ParamSpec("count", "Kites", min=5, max=300, step=5, default=60),
+                    ParamSpec("style", "Style", kind="choice",
+                              options=("realistic", "simple", "impressionistic"), default="simple"),
+                    ParamSpec("speed", "Speed", min=0, max=3, step=0.05, default=1),
+                    ParamSpec("size", "Size", min=0.3, max=3, step=0.05, default=1),
+                ),
+            ),
+            Scene(
                 "sparkle",
                 "Sparkle",
                 (

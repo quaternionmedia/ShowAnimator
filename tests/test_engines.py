@@ -32,3 +32,14 @@ def test_image_param_accepts_plain_file_names_only():
     assert spec.clean("The Oxbow (1836), Lake’s edge.JPG") == "The Oxbow (1836), Lake’s edge.JPG"
     for bad in ("../secret.png", "sub/x.png", "x.exe", ".hidden.png", "x.png\n", 3, "x.tif"):
         assert spec.clean(bad) == "", bad
+
+
+def test_kites_style_is_a_choice_with_a_safe_default():
+    scene = ENGINE.scenes["kites"]
+    assert scene.normalize({"style": "impressionistic"})["style"] == "impressionistic"
+    assert scene.normalize({"style": "cubist"})["style"] == "simple"
+    assert scene.normalize({"count": 9999})["count"] == 300
+    kites = next(m for m in ENGINE.manifest()["scenes"] if m["id"] == "kites")
+    style = next(p for p in kites["params"] if p["key"] == "style")
+    assert tuple(style["options"]) == ("realistic", "simple", "impressionistic")
+

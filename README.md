@@ -75,7 +75,7 @@ An engine has a Python manifest and a browser module.
 3. Serve the module yourself (a plugin mounts its own static directory).
 4. Test that every scene in the manifest has a draw function, as `tests/test_engines.py` does for `canvas2d`.
 
-The built-in engine is `canvas2d` (`solid`, `gradient`, `pulse`, `painting`, `fog` with slowly drifting soft blobs, `sparkle` with twinkling stars): `showanimator/engines/canvas2d.py` and `showanimator/static/engines/canvas2d.js`.
+The built-in engine is `canvas2d` (`solid`, `gradient`, `pulse`, `painting`, `fog` with slowly drifting soft blobs, `sparkle` with twinkling stars, `kites` with a style choice: realistic, simple or impressionistic): `showanimator/engines/canvas2d.py` and `showanimator/static/engines/canvas2d.js`.
 
 ## Development
 

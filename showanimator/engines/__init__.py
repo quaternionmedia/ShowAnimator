@@ -27,7 +27,8 @@ _ROUTE = re.compile(rf"{_POINT}(?:;{_POINT}){{1,19}}")
 @dataclass(frozen=True)
 class ParamSpec:
     """One scene parameter. ``kind`` is 'range' (numeric, min/max/step), 'color' (#rrggbb),
-    'image' (a file name in the media folder) or 'route' (travel-map stops, see _ROUTE)."""
+    'image' (a file name in the media folder), 'route' (travel-map stops, see _ROUTE)
+    or 'choice' (one of ``options``)."""
 
     key: str
     label: str
@@ -36,9 +37,12 @@ class ParamSpec:
     max: float = 1.0
     step: float = 0.01
     default: float | str = 0.0
+    options: tuple[str, ...] = ()
 
     def clean(self, value):
         """Coerce ``value`` to this param's type and range; fall back to the default."""
+        if self.kind == "choice":
+            return value if value in self.options else self.default
         if self.kind == "color":
             return value if isinstance(value, str) and _HEX.match(value) else self.default
         if self.kind == "image":
